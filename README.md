@@ -1,5 +1,3 @@
-Here's a sample **GitHub README.md** for your app:
-
 ---
 
 # **VidChop - Video Splitter API**
