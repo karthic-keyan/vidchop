@@ -1,15 +1,16 @@
-const express = require("express");
-const cors = require("cors");
-const multer = require("multer");
-const ffmpeg = require("fluent-ffmpeg");
-const ffmpegPath = require("ffmpeg-static");
-const JSZip = require("jszip");
-const fs = require("fs");
-const path = require("path");
-const { MongoClient } = require("mongodb");
-require("dotenv").config();
+import express from "express";
+import cors from "cors";
+import multer from "multer";
+import ffmpeg, { setFfmpegPath } from "fluent-ffmpeg";
+import ffmpegPath from "ffmpeg-static";
+import JSZip from "jszip";
+import { existsSync, mkdirSync, readFileSync, writeFileSync, unlinkSync, rmSync } from "fs";
+import { join } from "path";
+import { MongoClient } from "mongodb";
+import dotenv from "dotenv";
+dotenv.config();
 
-ffmpeg.setFfmpegPath(ffmpegPath);
+setFfmpegPath(ffmpegPath);
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -37,8 +38,8 @@ app.post("/split", upload.single("video"), async (req, res) => {
   const outputDir = "output/";
   const zip = new JSZip();
 
-  if (!fs.existsSync(outputDir)) {
-    fs.mkdirSync(outputDir);
+  if (!existsSync(outputDir)) {
+    mkdirSync(outputDir);
   }
 
   try {
@@ -46,7 +47,7 @@ app.post("/split", upload.single("video"), async (req, res) => {
       const { start, end } = timing;
       console.log('timing', timing)
       const outputFileName = `output_${index + 1}.mp4`;
-      const outputPath = path.join(outputDir, outputFileName);
+      const outputPath = join(outputDir, outputFileName);
 
       return new Promise((resolve, reject) => {
         ffmpeg(videoPath)
@@ -54,7 +55,7 @@ app.post("/split", upload.single("video"), async (req, res) => {
           .setDuration(end)
           .output(outputPath)
           .on("end", () => {
-            const fileData = fs.readFileSync(outputPath);
+            const fileData = readFileSync(outputPath);
             zip.file(outputFileName, fileData);
             resolve();
           })
@@ -66,15 +67,15 @@ app.post("/split", upload.single("video"), async (req, res) => {
     await Promise.all(promises);
 
     const zipBuffer = await zip.generateAsync({ type: "nodebuffer" });
-    const zipFilePath = path.join(outputDir, "split_videos.zip");
+    const zipFilePath = join(outputDir, "split_videos.zip");
 
-    fs.writeFileSync(zipFilePath, zipBuffer);
+    writeFileSync(zipFilePath, zipBuffer);
 
     res.download(zipFilePath, "split_videos.zip", () => {
       // Cleanup
-      fs.unlinkSync(videoPath);
-      fs.unlinkSync(zipFilePath);
-      fs.rmSync(outputDir, { recursive: true, force: true });
+      unlinkSync(videoPath);
+      unlinkSync(zipFilePath);
+      rmSync(outputDir, { recursive: true, force: true });
     });
   } catch (error) {
     console.error("Error processing video:", error);
